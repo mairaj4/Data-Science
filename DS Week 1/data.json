@@ -1,0 +1,9 @@
+{
+  "username": "John Doe",
+  "password": "ThisIsNotAPassword",
+  "url": "https://katalon-demo-cura.herokuapp.com/",
+  "makeappointtext": "Make My Appointment",
+  "visitdate": "30/04/2024",
+  "comments": "Mairaj",
+  "appointmentconfirmationtext": "Appointment Confirmation"
+}
