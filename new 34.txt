@@ -1,0 +1,167 @@
+Q2
+
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+
+# Define an Inception block
+def inception_block(x, filters):
+    branch1 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(x)
+
+    branch2 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(x)
+    branch2 = layers.Conv2D(filters, (3, 3), padding='same', activation='relu')(branch2)
+
+    branch3 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(x)
+    branch3 = layers.Conv2D(filters, (5, 5), padding='same', activation='relu')(branch3)
+
+    branch4 = layers.MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
+    branch4 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(branch4)
+
+    output = layers.concatenate([branch1, branch2, branch3, branch4], axis=-1)
+    return output
+
+# Define a residual block
+def residual_block(x, filters):
+    shortcut = x
+    x = layers.Conv2D(filters, (3, 3), padding='same', activation='relu')(x)
+    x = layers.Conv2D(filters, (3, 3), padding='same')(x)
+    x = layers.add([x, shortcut])
+    x = layers.Activation('relu')(x)
+    return x
+
+# Create the modified AlexNet model
+def modified_alexnet(input_shape, num_classes):
+    inputs = tf.keras.Input(shape=input_shape)
+
+    # AlexNet-like initial layers
+    x = layers.Conv2D(96, (11, 11), strides=(4, 4), activation='relu')(inputs)
+    x = layers.MaxPooling2D((3, 3), strides=(2, 2))(x)
+    x = layers.Conv2D(256, (5, 5), padding='same', activation='relu')(x)
+    x = layers.MaxPooling2D((3, 3), strides=(2, 2))(x)
+
+    # Inception block to enhance feature extraction
+    x = inception_block(x, 128)
+
+    # Residual block to improve gradient flow and learning
+    x = residual_block(x, 128)
+
+    x = layers.MaxPooling2D((3, 3), strides=(2, 2))(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(4096, activation='relu')(x)
+    x = layers.Dropout(0.5)(x)
+    x = layers.Dense(4096, activation='relu')(x)
+    x = layers.Dropout(0.5)(x)
+    outputs = layers.Dense(num_classes, activation='softmax')(x)
+
+    model = models.Model(inputs, outputs)
+    return model
+
+# Custom callback for tracking test scores
+class TestCallback(tf.keras.callbacks.Callback):
+    def __init__(self, test_data):
+        self.test_data = test_data
+        self.test_acc = []
+        self.test_loss = []
+
+    def on_epoch_end(self, epoch, logs=None):
+        test_loss, test_acc = self.model.evaluate(self.test_data[0], self.test_data[1], verbose=0)
+        self.test_acc.append(test_acc)
+        self.test_loss.append(test_loss)
+        print(f'Epoch {epoch + 1}: Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.4f}')
+
+# Function to load and preprocess the data (using CIFAR-10 as a subset of ImageNet)
+def load_data():
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+    x_train, x_test = x_train / 255.0, x_test / 255.0  # Normalize data
+    y_train, y_test = tf.keras.utils.to_categorical(y_train, 10), tf.keras.utils.to_categorical(y_test, 10)
+    return x_train, y_train, x_test, y_test
+
+# Function to train the model with test score tracking
+def train_model_with_test_tracking(model, x_train, y_train, x_val, y_val, test_data, epochs=10, batch_size=32):
+    test_callback = TestCallback(test_data)
+    history = model.fit(x_train, y_train, validation_data=(x_val, y_val),
+                        epochs=epochs, batch_size=batch_size, callbacks=[test_callback])
+    return history, test_callback
+
+# Function to plot training, validation, and test scores
+def plot_results_with_test(history, test_callback, title):
+    plt.figure(figsize=(18, 5))
+    
+    # Plot training and validation accuracy
+    plt.subplot(1, 3, 1)
+    plt.plot(history.history['accuracy'], label='Train Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+    plt.plot(test_callback.test_acc, label='Test Accuracy')
+    plt.title(f'{title} Accuracy')
+    plt.legend()
+
+    # Plot training and validation loss
+    plt.subplot(1, 3, 2)
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Val Loss')
+    plt.plot(test_callback.test_loss, label='Test Loss')
+    plt.title(f'{title} Loss')
+    plt.legend()
+
+    # Plot only test accuracy per epoch
+    plt.subplot(1, 3, 3)
+    plt.plot(test_callback.test_acc, label='Test Accuracy', color='orange')
+    plt.title('Test Accuracy Per Epoch')
+    plt.legend()
+
+    plt.show()
+
+# Load data
+x_train, y_train, x_test, y_test = load_data()
+
+# Create and compile the modified AlexNet model
+modified_model = modified_alexnet(x_train.shape[1:], 10)
+modified_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the modified AlexNet model with test score tracking
+history_modified, test_callback = train_model_with_test_tracking(modified_model, x_train, y_train, x_test, y_test, (x_test, y_test), epochs=10)
+
+# Plot results
+plot_results_with_test(history_modified, test_callback, 'Modified AlexNet with Test Tracking')
+
+Q2 previous
+# Updated AlexNet model with Inception and Residual blocks
+def modified_alexnet(input_shape, num_classes):
+    inputs = tf.keras.Input(shape=input_shape)
+
+    # AlexNet-like initial layers
+    x = layers.Conv2D(96, (11, 11), strides=(4, 4), activation='relu')(inputs)
+    x = layers.MaxPooling2D((3, 3), strides=(2, 2))(x)
+    x = layers.Conv2D(256, (5, 5), padding='same', activation='relu')(x)
+    x = layers.MaxPooling2D((3, 3), strides=(2, 2))(x)
+
+    # Inception block to enhance feature extraction
+    x = inception_block(x, 128)
+
+    # Residual block to improve gradient flow and learning
+    x = residual_block(x, 128)
+
+    x = layers.MaxPooling2D((3, 3), strides=(2, 2))(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(4096, activation='relu')(x)
+    x = layers.Dropout(0.5)(x)
+    x = layers.Dense(4096, activation='relu')(x)
+    x = layers.Dropout(0.5)(x)
+    outputs = layers.Dense(num_classes, activation='softmax')(x)
+
+    model = models.Model(inputs, outputs)
+    return model
+
+# Compile and train the modified AlexNet model
+modified_model = modified_alexnet(x_train.shape[1:], 10)
+modified_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+history_modified = train_model(modified_model, x_train, y_train, x_test, y_test, epochs=10)
+
+# Plot training, validation scores, and test scores
+plot_results(history_modified, 'Modified AlexNet')
+
+# Evaluate on test data and plot test scores
+test_loss, test_acc = modified_model.evaluate(x_test, y_test)
+print(f'Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.4f}')
+

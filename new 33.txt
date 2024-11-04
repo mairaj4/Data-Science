@@ -1,0 +1,91 @@
+Q1
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+
+# Define an Inception block without residual connections
+def inception_block_no_residual(x, filters):
+    branch1 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(x)
+
+    branch2 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(x)
+    branch2 = layers.Conv2D(filters, (3, 3), padding='same', activation='relu')(branch2)
+
+    branch3 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(x)
+    branch3 = layers.Conv2D(filters, (5, 5), padding='same', activation='relu')(branch3)
+
+    branch4 = layers.MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
+    branch4 = layers.Conv2D(filters, (1, 1), padding='same', activation='relu')(branch4)
+
+    output = layers.concatenate([branch1, branch2, branch3, branch4], axis=-1)
+    return output
+
+# Define a simple 5-6 layer model with Inception blocks
+def create_inception_model(input_shape, num_classes):
+    inputs = tf.keras.Input(shape=input_shape)
+    x = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
+    x = inception_block_no_residual(x, 64)
+    x = layers.MaxPooling2D((2, 2))(x)
+    x = inception_block_no_residual(x, 128)
+    x = layers.MaxPooling2D((2, 2))(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dropout(0.5)(x)
+    outputs = layers.Dense(num_classes, activation='softmax')(x)
+
+    model = models.Model(inputs, outputs)
+    return model
+
+# Load and preprocess data (using CIFAR-10 as a subset of ImageNet)
+def load_data():
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+    x_train, x_test = x_train / 255.0, x_test / 255.0  # Normalize data
+    y_train, y_test = tf.keras.utils.to_categorical(y_train, 10), tf.keras.utils.to_categorical(y_test, 10)
+    return x_train, y_train, x_test, y_test
+
+# Function to train and evaluate the model
+def train_and_evaluate_model(model, x_train, y_train, x_val, y_val, epochs=10, batch_size=32):
+    history = model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=epochs, batch_size=batch_size)
+    return history
+
+# Function to plot training and validation results
+def plot_results(history, title):
+    plt.figure(figsize=(14, 5))
+
+    # Plot training and validation accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'], label='Train Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title(f'{title} Accuracy')
+    plt.legend()
+
+    # Plot training and validation loss
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title(f'{title} Loss')
+    plt.legend()
+
+    plt.show()
+
+# Load data
+x_train, y_train, x_test, y_test = load_data()
+
+# Split training data for validation
+x_val = x_train[-10000:]
+y_val = y_train[-10000:]
+x_train = x_train[:-10000]
+y_train = y_train[:-10000]
+
+# Create and train the model with Inception blocks
+inception_model = create_inception_model(x_train.shape[1:], 10)
+inception_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+history_inception = train_and_evaluate_model(inception_model, x_train, y_train, x_val, y_val, epochs=10)
+
+# Plot results for the model with Inception blocks
+plot_results(history_inception, 'Inception Model without Residuals')
+
+# Evaluate on test data
+test_loss, test_acc = inception_model.evaluate(x_test, y_test)
+print(f'Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.4f}')
+
+Q1 Previous
